@@ -94,7 +94,7 @@
 
                     <div>
                         <label for="time_allocation" class="block text-sm font-medium text-gray-700">4. Alokasi Waktu (JP)</label>
-                        <input type="text" id="time_allocation" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border" placeholder="Contoh: 2 x 35 menit (1 Pertemuan)" required>
+                        <input type="text" id="time_allocation" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border" placeholder="Contoh: 2 x 45 menit (1 Pertemuan)" required>
                     </div>
 
                     <div>
@@ -110,7 +110,7 @@
                     <!-- Button Area -->
                     <div class="pt-4 space-y-3">
                         <button type="submit" id="generate-btn" class="w-full py-3 px-4 border border-transparent rounded-lg shadow-md text-base font-semibold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150 ease-in-out disabled:opacity-50" disabled>
-                            <span id="btn-text">Muat Ulang...</span>
+                            <span id="btn-text">Memuat Otentikasi...</span>
                             <div id="spinner" class="hidden animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div>
                         </button>
                         <button type="button" id="download-btn" onclick="downloadRPP()" class="w-full py-3 px-4 border border-gray-300 rounded-lg shadow-md text-base font-semibold text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out disabled:opacity-50" disabled>
@@ -168,12 +168,13 @@
         let isAuthReady = false;
 
         document.addEventListener('DOMContentLoaded', () => {
+            btnText.textContent = 'Memuat Otentikasi...'; // Set initial loading state
             // Check for Firebase readiness before enabling the button
             const checkFirebase = setInterval(() => {
                 if (window.auth && window.auth.currentUser) {
                     isAuthReady = true;
                     generateBtn.disabled = false;
-                    btnText.textContent = 'Buat RPP by Bams';
+                    btnText.textContent = 'Buat RPP by Bams'; // Set ready text
                     clearInterval(checkFirebase);
                 }
             }, 100);
