@@ -1,398 +1,257 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RPP Generator Berbasis AI (by Bams)</title>
-    <!-- Load Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        // --- Firebase Initialization (Mandatory Setup) ---
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const __initial_auth_token = typeof window.__initial_auth_token !== 'undefined' ? window.__initial_auth_token : undefined;
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RPP Generator Berbasis AI (by Bams)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 
-        window.app = initializeApp(firebaseConfig);
-        window.db = getFirestore(window.app);
-        window.auth = getAuth(window.app);
+  <!-- Firebase Authentication -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { 
+      getAuth, 
+      signInAnonymously, 
+      signInWithCustomToken, 
+      onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // This listener updates window.userId whenever auth state changes
-        onAuthStateChanged(window.auth, (user) => {
-            if (user) {
-                console.log("Firebase Auth State Changed. User ID:", user.uid);
-                window.userId = user.uid;
-            } else {
-                console.log("Firebase Auth State Changed. No user.");
-                window.userId = null;
-            }
-        });
-        
-        // Execute sign-in and set a global flag when the process is done
-        const signInPromise = __initial_auth_token
-            ? signInWithCustomToken(window.auth, __initial_auth_token).catch(error => {
-                console.error("Error signing in with custom token, falling back to anonymous:", error);
-                return signInAnonymously(window.auth);
-            })
-            : signInAnonymously(window.auth);
+    // --- KONFIGURASI FIREBASE (ISI DENGAN DATA FIREBASE ANDA) ---
+    const firebaseConfig = {
+      apiKey: "ISI_DENGAN_API_KEY_FIREBASE_ANDA",
+      authDomain: "ISI_DENGAN_AUTH_DOMAIN",
+      projectId: "ISI_DENGAN_PROJECT_ID",
+      storageBucket: "ISI_DENGAN_STORAGE_BUCKET",
+      messagingSenderId: "ISI_DENGAN_SENDER_ID",
+      appId: "ISI_DENGAN_APP_ID"
+    };
 
-        signInPromise
-            .then(() => {
-                // Set the global flag to signal the main script that auth is complete
-                window.isFirebaseReady = true; 
-            })
-            .catch(error => {
-                console.error("Critical Firebase Sign-in Error:", error);
-                window.isFirebaseReady = false; // Signal failure
-            });
-    </script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f7f9fb;
-        }
-        /* Custom scrollbar for RPP output area */
-        #rpp-output::-webkit-scrollbar {
-            width: 8px;
-        }
-        #rpp-output::-webkit-scrollbar-thumb {
-            background-color: #cbd5e1; /* slate-300 */
-            border-radius: 4px;
-        }
-    </style>
+    // --- INISIALISASI FIREBASE ---
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    window.app = app;
+    window.auth = auth;
+    window.db = db;
+    window.isFirebaseReady = false;
+
+    const btnText = document.getElementById('btn-text');
+    const generateBtn = document.getElementById('generate-btn');
+    const errorMessage = document.getElementById('error-message');
+
+    function displayError(message) {
+      errorMessage.textContent = message;
+      errorMessage.classList.remove('hidden');
+    }
+
+    // --- LOGIN FIREBASE (CUSTOM TOKEN / ANONIM) ---
+    const customToken = window.__initial_auth_token || null;
+    const signIn = customToken 
+      ? signInWithCustomToken(auth, customToken).catch(() => signInAnonymously(auth))
+      : signInAnonymously(auth);
+
+    signIn
+      .then((userCredential) => {
+        console.log("Login Firebase berhasil:", userCredential.user.uid);
+        window.isFirebaseReady = true;
+        btnText.textContent = 'Buat RPP by Bams';
+        generateBtn.disabled = false;
+      })
+      .catch((error) => {
+        console.error("Gagal otentikasi Firebase:", error);
+        window.isFirebaseReady = false;
+        btnText.textContent = 'Gagal Otentikasi';
+        displayError("Gagal menghubungkan ke Firebase. Periksa konfigurasi atau koneksi internet.");
+      });
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log("Pengguna aktif:", user.uid);
+        window.userId = user.uid;
+      } else {
+        console.log("Tidak ada pengguna aktif.");
+        window.userId = null;
+      }
+    });
+
+    window.addEventListener('load', () => {
+      if (!auth) {
+        displayError("Firebase gagal dimuat. Periksa koneksi atau versi SDK.");
+        btnText.textContent = 'Gagal Otentikasi';
+        generateBtn.disabled = true;
+      }
+    });
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; }
+    #rpp-output::-webkit-scrollbar { width: 8px; }
+    #rpp-output::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+  </style>
 </head>
+
 <body class="p-4 md:p-8 min-h-screen">
+  <div class="max-w-7xl mx-auto">
+    <header class="mb-8 text-center">
+      <h1 class="text-3xl font-extrabold text-blue-800 md:text-4xl">RPP Generator Berbasis AI</h1>
+      <p class="text-lg text-gray-600 mt-1">Oleh: Bams Collection (Didukung Gemini AI)</p>
+    </header>
 
-    <!-- Main Container -->
-    <div class="max-w-7xl mx-auto">
-        <header class="mb-8 text-center">
-            <h1 class="text-3xl font-extrabold text-blue-800 md:text-4xl">RPP Generator Berbasis AI</h1>
-            <p class="text-lg text-gray-600 mt-1">Oleh: Bams Collection (Didukung Gemini AI)</p>
-        </header>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Panel Form -->
+      <div class="bg-white p-6 rounded-xl shadow-lg lg:col-span-1">
+        <h2 class="text-xl font-bold mb-5 text-gray-800 border-b pb-2">Formulir Input RPP</h2>
+        <form id="rpp-form" onsubmit="generateRPP(event)" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700">1. Mata Pelajaran</label>
+            <input id="subject" class="w-full p-3 border rounded-lg" placeholder="Contoh: Matematika" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">2. Kelas/Tingkat</label>
+            <input id="grade" class="w-full p-3 border rounded-lg" placeholder="Contoh: Kelas 4 (Fase B)" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">3. Topik/Materi Pokok</label>
+            <input id="topic" class="w-full p-3 border rounded-lg" placeholder="Contoh: Penjumlahan sampai 4 angka" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">4. Alokasi Waktu (JP)</label>
+            <input id="time_allocation" class="w-full p-3 border rounded-lg" placeholder="Contoh: 2 x 35 menit" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">5. Tujuan Pembelajaran</label>
+            <textarea id="objective" rows="3" class="w-full p-3 border rounded-lg" placeholder="Contoh: Siswa dapat mengaplikasikan penjumlahan sampai 4 angka dalam kehidupan sehari-hari." required></textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">6. Model Pembelajaran (Opsional)</label>
+            <input id="model" class="w-full p-3 border rounded-lg" placeholder="Contoh: PBL, PJBL, atau kosongkan">
+          </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            <!-- Input Form (Left/Top Panel) -->
-            <div id="input-form-panel" class="lg:col-span-1 bg-white p-6 rounded-xl shadow-lg h-full">
-                <h2 class="text-xl font-bold mb-5 text-gray-800 border-b pb-2">Formulir Input RPP</h2>
-                
-                <form id="rpp-form" onsubmit="generateRPP(event)" class="space-y-4">
-                    
-                    <div>
-                        <label for="subject" class="block text-sm font-medium text-gray-700">1. Mata Pelajaran</label>
-                        <input type="text" id="subject" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border" placeholder="Contoh: Matematika" required>
-                    </div>
+          <div class="pt-4 space-y-3">
+            <button id="generate-btn" type="submit" disabled class="w-full py-3 rounded-lg font-semibold text-white bg-green-600 hover:bg-green-700 transition">
+              <span id="btn-text">Memuat Otentikasi...</span>
+              <div id="spinner" class="hidden animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div>
+            </button>
+            <button id="download-btn" type="button" disabled onclick="downloadRPP()" class="w-full py-3 border rounded-lg bg-white hover:bg-gray-50 text-gray-700">
+              Unduh Dokumen (.md)
+            </button>
+          </div>
+          <div id="error-message" class="hidden mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm"></div>
+        </form>
+      </div>
 
-                    <div>
-                        <label for="grade" class="block text-sm font-medium text-gray-700">2. Kelas/Tingkat</label>
-                        <input type="text" id="grade" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border" placeholder="Contoh: Kelas 4 (Fase B)" required>
-                    </div>
-
-                    <div>
-                        <label for="topic" class="block text-sm font-medium text-gray-700">3. Topik/Materi Pokok</label>
-                        <input type="text" id="topic" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border" placeholder="Contoh: Penjumlahan sampai 4 angka" required>
-                    </div>
-
-                    <div>
-                        <label for="time_allocation" class="block text-sm font-medium text-gray-700">4. Alokasi Waktu (JP)</label>
-                        <input type="text" id="time_allocation" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border" placeholder="Contoh: 2 x 35 menit (1 Pertemuan)" required>
-                    </div>
-
-                    <div>
-                        <label for="objective" class="block text-sm font-medium text-gray-700">5. Tujuan Pembelajaran (Singkat)</label>
-                        <textarea id="objective" rows="3" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border" placeholder="Contoh: Siswa dapat mengaplikasikan penjumlahan sampai 4 angka yang berkaitan dengan kehidupan sehari-hari." required></textarea>
-                    </div>
-
-                    <div>
-                        <label for="model" class="block text-sm font-medium text-gray-700">6. Model Pembelajaran (Opsional)</label>
-                        <input type="text" id="model" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border" placeholder="Contoh: PBL, PJBL, atau Kosongkan">
-                    </div>
-
-                    <!-- Button Area -->
-                    <div class="pt-4 space-y-3">
-                        <button type="submit" id="generate-btn" class="w-full py-3 px-4 border border-transparent rounded-lg shadow-md text-base font-semibold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150 ease-in-out disabled:opacity-50" disabled>
-                            <span id="btn-text">Memuat Otentikasi...</span>
-                            <div id="spinner" class="hidden animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div>
-                        </button>
-                        <button type="button" id="download-btn" onclick="downloadRPP()" class="w-full py-3 px-4 border border-gray-300 rounded-lg shadow-md text-base font-semibold text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out disabled:opacity-50" disabled>
-                            Unduh Dokumen (.md Siap Salin ke Word)
-                        </button>
-                    </div>
-                    
-                    <div id="error-message" class="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg hidden text-sm"></div>
-                </form>
-            </div>
-
-            <!-- RPP Output (Right/Bottom Panel) -->
-            <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg">
-                <h2 class="text-xl font-bold mb-5 text-gray-800 border-b pb-2">Hasil RPP Generator</h2>
-                <div id="loading-indicator" class="hidden text-center p-8">
-                    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto mb-3"></div>
-                    <p class="text-blue-600 font-medium">Sabar ya Boss!!! sedang menyusun RPP mendalam Anda...</p>
-                    <p class="text-sm text-gray-500 mt-1">Proses ini mungkin memakan waktu 15-30 detik.</p>
-                </div>
-                
-                <div id="rpp-output" class="text-base text-gray-700 whitespace-pre-wrap leading-relaxed max-h-[80vh] overflow-y-auto">
-                    <p class="text-gray-500 italic">Isi RPP akan muncul di sini setelah Anda mengisi formulir dan menekan tombol **"Buat RPP by Bams"**.</p>
-                </div>
-            </div>
+      <!-- Panel Output -->
+      <div class="bg-white p-6 rounded-xl shadow-lg lg:col-span-2">
+        <h2 class="text-xl font-bold mb-5 text-gray-800 border-b pb-2">Hasil RPP Generator</h2>
+        <div id="loading-indicator" class="hidden text-center p-8">
+          <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto mb-3"></div>
+          <p class="text-blue-600 font-medium">Sedang menyusun RPP Anda...</p>
+          <p class="text-sm text-gray-500 mt-1">Proses ini memakan waktu sekitar 15-30 detik.</p>
         </div>
+        <div id="rpp-output" class="text-base text-gray-700 whitespace-pre-wrap leading-relaxed max-h-[80vh] overflow-y-auto">
+          <p class="text-gray-500 italic">Isi RPP akan muncul di sini setelah Anda menekan tombol "Buat RPP by Bams".</p>
+        </div>
+      </div>
     </div>
+  </div>
 
-    <script>
-        // --- API & Utility Functions ---
-        const API_MODEL = 'gemini-2.5-flash-preview-09-2025';
-        const API_URL_BASE = `https://generativelanguage.googleapis.com/v1beta/models/${API_MODEL}:generateContent?key=`;
-        const API_KEY = ""; // Canvas environment will provide the key at runtime
+  <!-- Script Utama -->
+  <script>
+    const API_MODEL = 'gemini-2.5-flash-preview-09-2025';
+    const API_URL_BASE = `https://generativelanguage.googleapis.com/v1beta/models/${API_MODEL}:generateContent?key=`;
+    const API_KEY = ""; // masukkan API key Gemini kamu di sini
 
-        const generateBtn = document.getElementById('generate-btn');
-        const downloadBtn = document.getElementById('download-btn');
-        const rppOutput = document.getElementById('rpp-output');
-        const loadingIndicator = document.getElementById('loading-indicator');
-        const errorMessage = document.getElementById('error-message');
-        const spinner = document.getElementById('spinner');
-        const btnText = document.getElementById('btn-text');
+    const generateBtn = document.getElementById('generate-btn');
+    const downloadBtn = document.getElementById('download-btn');
+    const rppOutput = document.getElementById('rpp-output');
+    const loadingIndicator = document.getElementById('loading-indicator');
+    const errorMessage = document.getElementById('error-message');
+    const spinner = document.getElementById('spinner');
+    const btnText = document.getElementById('btn-text');
 
-        let isAuthReady = false;
-        
-        // Helper function to check if all required fields are filled
-        function checkRequiredFields() {
-            const requiredFields = [
-                document.getElementById('subject').value.trim(),
-                document.getElementById('grade').value.trim(),
-                document.getElementById('topic').value.trim(),
-                document.getElementById('time_allocation').value.trim(),
-                document.getElementById('objective').value.trim()
-            ];
-            return requiredFields.every(val => val !== '');
-        }
+    function checkRequiredFields() {
+      const fields = ['subject','grade','topic','time_allocation','objective'];
+      return fields.every(id => document.getElementById(id).value.trim() !== '');
+    }
 
-        // Dedicated function to poll for the global ready flag set by the module script
-        function waitForFirebase() {
-            const checkReady = setInterval(() => {
-                // Check the global flag set by the module script
-                if (window.isFirebaseReady === true) {
-                    clearInterval(checkReady);
-                    isAuthReady = true;
-                    // Enable button if fields are already filled
-                    generateBtn.disabled = !checkRequiredFields(); 
-                    btnText.textContent = 'Buat RPP by Bams'; 
-                } else if (window.isFirebaseReady === false) {
-                     // Handle critical failure
-                    clearInterval(checkReady);
-                    btnText.textContent = 'Gagal Otentikasi'; 
-                    displayError('Gagal melakukan otentikasi Firebase. Cek konsol untuk detail.');
-                }
-            }, 100);
-        }
+    async function generateRPP(event) {
+      event.preventDefault();
+      if (!window.isFirebaseReady) {
+        displayError("Firebase belum siap. Tunggu beberapa detik lalu coba lagi.");
+        return;
+      }
+      if (!checkRequiredFields()) {
+        displayError("Lengkapi semua kolom wajib sebelum melanjutkan.");
+        return;
+      }
 
-        // Start waiting immediately
-        waitForFirebase();
-        
-        // Add event listener to enable/disable button based on required fields AND auth readiness
-        document.querySelectorAll('#subject, #grade, #topic, #time_allocation, #objective').forEach(field => {
-            field.addEventListener('input', () => {
-                if (isAuthReady) { 
-                    generateBtn.disabled = !checkRequiredFields();
-                }
-            });
+      generateBtn.disabled = true;
+      downloadBtn.disabled = true;
+      errorMessage.classList.add('hidden');
+      rppOutput.innerHTML = '';
+      loadingIndicator.classList.remove('hidden');
+      spinner.classList.remove('hidden');
+      btnText.textContent = 'Memproses...';
+
+      const subject = subject.value;
+      const grade = grade.value;
+      const topic = topic.value;
+      const timeAllocation = time_allocation.value;
+      const objective = objective.value;
+      const model = model.value;
+
+      const userQuery = `
+        Mata Pelajaran: ${subject}
+        Kelas/Tingkat: ${grade}
+        Topik: ${topic}
+        Alokasi Waktu: ${timeAllocation}
+        Tujuan Pembelajaran: ${objective}
+        Model Pembelajaran: ${model || 'Tidak ditentukan.'}
+      `;
+
+      const payload = {
+        contents: [{ parts: [{ text: userQuery }] }],
+        systemInstruction: { parts: [{ text: "Buat RPP lengkap dan terstruktur dalam format markdown sesuai Kurikulum Merdeka." }] }
+      };
+
+      try {
+        const response = await fetch(API_URL_BASE + API_KEY, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
         });
+        const result = await response.json();
+        const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "Tidak ada hasil dari AI.";
+        rppOutput.innerHTML = `<div class='p-4 border rounded-lg bg-gray-50 whitespace-pre-wrap'>${text}</div>`;
+        downloadBtn.disabled = false;
+      } catch (err) {
+        displayError("Gagal memuat hasil. " + err.message);
+      }
 
-        const systemPrompt = `
-            Anda adalah pengembang kurikulum dan guru ahli kelas dunia yang berspesialisasi dalam perancangan Rencana Pelaksanaan Pembelajaran (RPP) yang mendalam, kontekstual, dan berdiferensiasi berdasarkan prinsip Kurikulum Merdeka di Indonesia.
-            Tugas Anda adalah menghasilkan draf RPP yang lengkap dan sangat terstruktur dalam Bahasa Indonesia, berdasarkan input yang diberikan.
-            
-            ANDA HARUS MEMENUHI SEMUA PERSYARATAN STRUKTUR INI SECARA KETAT, menggunakan format Markdown untuk tampilan yang rapi:
-            
-            1. Judul RPP harus diletakkan di bagian paling atas.
-            2. Gunakan huruf tebal untuk menyorot kata kunci.
-            
-            STRUKTUR UTAMA:
-            
-            ### A. IDENTIFIKASI
-            - **Identifikasi Murid**: Jelaskan secara singkat profil murid (Tahap Perkembangan Kognitif, Perkembangan Sosial-Emosional, Perkembangan Bahasa, Ciri Belajar Umum) yang relevan dengan materi ini.
-            - **Karakteristik Materi**: Jelaskan esensi materi ini dan tantangan utamanya.
-            - **Keterkaitan dengan Dunia Nyata**: Berikan contoh konkret (Konteks nyata di lingkungan murid, Penerapan nilai di kehidupan sehari-hari).
-            - **Dimensi Profil Lulusan**: Pilih dan jelaskan 3-5 Dimensi Profil Lulusan (Imtaq, Kewargaan, Kreatifitas, Mandiri, Komunikasi, Kesehatan, Kolaborasi, Penalaran Kritis) yang paling sesuai dengan topik ini.
-            
-            ### B. PELAKSANAAN PEMBELAJARAN
-            - **Capaian Pembelajaran (CP) di Akhir Fase**: Sebutkan CP yang relevan.
-            - **Tujuan Pembelajaran (TP)**: Rumuskan dalam format ABCD (Audience, Behavior, Condition, Degree), berikan 2-3 poin yang mendalam.
-            - **Lintas Disiplin Ilmu**: Tunjukkan keterkaitan topik ini dengan minimal dua disiplin ilmu lain.
-            - **Kerangka Pembelajaran**: Rangkum Praktik Pedagogik, Lingkungan Pembelajaran, Kemitraan Pembelajaran, dan Pemanfaatan Digital yang akan digunakan. Sertakan pendekatan **STEM** (Science, Technology, Engineering, Mathematics) dan jelaskan bagaimana **Model Pembelajaran** (jika ada) diintegrasikan.
-            
-            ### C. KEGIATAN PEMBELAJARAN (Joyful, Meaningful, Mindful)
-            - **Prinsip Pembelajaran**: Cantumkan prinsip **Berkesadaran, Bermakna, dan Menyenangkan** sesuai dengan konsep **Ramah Lingkungan**.
-            - Rancang Kegiatan Pendahuluan, Kegiatan Inti, dan Kegiatan Penutup secara runtut.
-            - **Kegiatan Inti**: Harus mencakup prinsip **Memahami, Mengaplikasi, dan Merefleksi**.
-            - **Kalimat Pemanantik/Pertanyaan Materi**: Sertakan satu kalimat pemantik di Pendahuluan dan 2-3 Pertanyaan Materi di Kegiatan Inti.
-            - Berikan keterangan **JOYFUL**, **MEANINGFUL**, **MINDFUL** di setiap tahapan.
-            
-            ### D. ASSESMEN (PENILAIAN)
-            - **Assesmen Awal (Diagnostik)**: Rancang 2 soal (termasuk kunci jawaban) dan instrumen/rubrik singkat.
-            - **Assesmen Formatif (Proses)**: Rancang 2-3 instrumen observasi/penilaian diri (self-assessment) dan rubrik singkat.
-            - **Assesmen Sumatif (Akhir)**: Rancang 3 soal (pilihan ganda/uraian, termasuk kunci jawaban) dan rubrik/pedoman penskoran.
-            - **Ice Breaking/Permainan**: Rancang 1 kegiatan singkat yang relevan.
-            - **LKPD Mandiri (Individual)**: Rancang satu instruksi tugas mandiri.
-            - **LKPD Kelompok (Diferensiasi Minat)**: Rancang 3 instruksi tugas kelompok yang mengakomodir 3 level minat belajar (Mudah, Sedang, Sulit) untuk topik ini.
-        `;
+      loadingIndicator.classList.add('hidden');
+      spinner.classList.add('hidden');
+      btnText.textContent = 'Buat RPP by Bams';
+      generateBtn.disabled = !checkRequiredFields();
+    }
 
-        async function generateRPP(event) {
-            event.preventDefault();
-            
-            // Collect form data
-            const subject = document.getElementById('subject').value;
-            const grade = document.getElementById('grade').value;
-            const topic = document.getElementById('topic').value;
-            const timeAllocation = document.getElementById('time_allocation').value;
-            const objective = document.getElementById('objective').value;
-            const model = document.getElementById('model').value;
+    function displayError(msg) {
+      errorMessage.textContent = msg;
+      errorMessage.classList.remove('hidden');
+    }
 
-            // Simple validation
-            if (!checkRequiredFields()) {
-                displayError("Mohon lengkapi semua kolom yang wajib diisi.");
-                return;
-            }
-
-            // UI State: Loading
-            generateBtn.disabled = true;
-            downloadBtn.disabled = true;
-            errorMessage.classList.add('hidden');
-            rppOutput.innerHTML = '';
-            loadingIndicator.classList.remove('hidden');
-            spinner.classList.remove('hidden');
-            btnText.textContent = 'Memproses...';
-
-            // Construct User Query
-            const userQuery = `
-                Mata Pelajaran: ${subject}
-                Kelas/Tingkat: ${grade}
-                Topik/Materi Pokok: ${topic}
-                Alokasi Waktu: ${timeAllocation}
-                Tujuan Pembelajaran Singkat: ${objective}
-                Model Pembelajaran (Opsional): ${model || 'Tidak ditentukan, pilih yang paling cocok.'}
-                
-                Mohon hasilkan RPP lengkap sesuai struktur yang diminta.
-            `;
-
-            // Construct Payload
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                tools: [{ "google_search": {} }],
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-            };
-
-            const apiUrl = API_URL_BASE + API_KEY;
-            
-            let resultText = '';
-            let attempts = 0;
-            const maxAttempts = 5;
-
-            while (attempts < maxAttempts) {
-                try {
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!response.ok) {
-                        if (response.status === 429 && attempts < maxAttempts - 1) {
-                            // Exponential Backoff
-                            const delay = Math.pow(2, attempts) * 1000;
-                            console.warn(`Rate limit exceeded. Retrying in ${delay / 1000}s...`);
-                            attempts++;
-                            await new Promise(resolve => setTimeout(resolve, delay));
-                            continue;
-                        }
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-
-                    const result = await response.json();
-                    const candidate = result.candidates?.[0];
-
-                    if (candidate && candidate.content?.parts?.[0]?.text) {
-                        resultText = candidate.content.parts[0].text;
-                    } else {
-                        throw new Error("Respons dari AI tidak mengandung teks yang valid.");
-                    }
-                    break; // Success, exit loop
-
-                } catch (error) {
-                    console.error("Gemini API call failed:", error);
-                    resultText = "Gagal memproses permintaan: " + error.message + ". Silakan coba lagi.";
-                    break; 
-                } finally {
-                    attempts++;
-                }
-            }
-            
-            // UI State: Complete
-            loadingIndicator.classList.add('hidden');
-            spinner.classList.add('hidden');
-            btnText.textContent = 'Buat RPP by Bams';
-            // Re-enable button based on whether fields are still filled
-            generateBtn.disabled = !checkRequiredFields(); 
-
-            if (resultText && !resultText.startsWith("Gagal")) {
-                rppOutput.innerHTML = formatMarkdownToHTML(resultText);
-                downloadBtn.disabled = false;
-            } else {
-                rppOutput.innerHTML = `<p class="text-red-600 font-bold">${resultText}</p>`;
-                displayError(resultText);
-            }
-        }
-
-        function displayError(message) {
-            errorMessage.textContent = message;
-            errorMessage.classList.remove('hidden');
-        }
-
-        function formatMarkdownToHTML(markdownText) {
-            // Basic Markdown to HTML conversion for display
-            let html = markdownText
-                .replace(/^### (.*$)/gim, '<h3 class="text-xl font-bold mt-6 mb-3 text-blue-700">$1</h3>')
-                .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-extrabold mt-8 mb-4 border-b-2 pb-1 text-gray-800">$1</h2>')
-                .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-extrabold mt-1 mb-6 text-center text-green-700">$1</h1>')
-                .replace(/^\* (.*$)/gim, '<li class="ml-4 list-disc">$1</li>')
-                .replace(/^  - (.*$)/gim, '<li class="ml-8 list-circle">$1</li>')
-                .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
-                .replace(/^(?!<h|<li)(.*$)/gim, '<p class="mb-3">$1</p>');
-            
-            // Clean up list issues (where lists are not fully wrapped) and keep pre-wrap
-            return `<div class="p-4 border border-gray-200 rounded-lg bg-gray-50">${html}</div>`;
-        }
-
-        function downloadRPP() {
-            const subject = document.getElementById('subject').value;
-            const topic = document.getElementById('topic').value;
-            // Changed the file extension to .md (Markdown) which is easily readable on GitHub and convertible to Word
-            const filename = `RPP_${subject.replace(/[^a-zA-Z0-9]/g, '_')}_${topic.replace(/[^a-zA-Z0-9]/g, '_')}.md`;
-            
-            const rppContent = document.getElementById('rpp-output').textContent;
-            
-            if (!rppContent || rppContent.includes('Isi RPP akan muncul di sini')) {
-                displayError("Tidak ada RPP yang dihasilkan untuk diunduh.");
-                return;
-            }
-
-            // Create a Blob containing the content with markdown MIME type
-            const blob = new Blob([rppContent], { type: 'text/markdown;charset=utf-8' });
-            
-            // Create a temporary link element
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = filename;
-            
-            // Append link to body, click it, and remove it
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        }
-    </script>
+    function downloadRPP() {
+      const subject = document.getElementById('subject').value;
+      const topic = document.getElementById('topic').value;
+      const content = rppOutput.textContent;
+      const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `RPP_${subject}_${topic}.md`;
+      a.click();
+    }
+  </script>
 </body>
 </html>
