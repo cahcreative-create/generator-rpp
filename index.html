@@ -20,29 +20,34 @@
         window.db = getFirestore(window.app);
         window.auth = getAuth(window.app);
 
-        // Sign in logic
+        // This listener updates window.userId whenever auth state changes
         onAuthStateChanged(window.auth, (user) => {
             if (user) {
-                console.log("Firebase Auth Ready. User ID:", user.uid);
+                console.log("Firebase Auth State Changed. User ID:", user.uid);
                 window.userId = user.uid;
             } else {
-                console.log("Firebase Auth Ready. User signed out.");
+                console.log("Firebase Auth State Changed. No user.");
                 window.userId = null;
             }
         });
+        
+        // Execute sign-in and set a global flag when the process is done
+        const signInPromise = __initial_auth_token
+            ? signInWithCustomToken(window.auth, __initial_auth_token).catch(error => {
+                console.error("Error signing in with custom token, falling back to anonymous:", error);
+                return signInAnonymously(window.auth);
+            })
+            : signInAnonymously(window.auth);
 
-        if (__initial_auth_token) {
-            signInWithCustomToken(window.auth, __initial_auth_token)
-                .then(() => console.log("Signed in with custom token."))
-                .catch(error => {
-                    console.error("Error signing in with custom token:", error);
-                    signInAnonymously(window.auth).then(() => console.log("Signed in anonymously (fallback)."));
-                });
-        } else {
-            signInAnonymously(window.auth)
-                .then(() => console.log("Signed in anonymously."))
-                .catch(error => console.error("Error signing in anonymously:", error));
-        }
+        signInPromise
+            .then(() => {
+                // Set the global flag to signal the main script that auth is complete
+                window.isFirebaseReady = true; 
+            })
+            .catch(error => {
+                console.error("Critical Firebase Sign-in Error:", error);
+                window.isFirebaseReady = false; // Signal failure
+            });
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
@@ -94,7 +99,7 @@
 
                     <div>
                         <label for="time_allocation" class="block text-sm font-medium text-gray-700">4. Alokasi Waktu (JP)</label>
-                        <input type="text" id="time_allocation" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border" placeholder="Contoh: 2 x 45 menit (1 Pertemuan)" required>
+                        <input type="text" id="time_allocation" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border" placeholder="Contoh: 2 x 35 menit (1 Pertemuan)" required>
                     </div>
 
                     <div>
@@ -144,19 +149,6 @@
         const API_URL_BASE = `https://generativelanguage.googleapis.com/v1beta/models/${API_MODEL}:generateContent?key=`;
         const API_KEY = ""; // Canvas environment will provide the key at runtime
 
-        function base64ToArrayBuffer(base64) {
-            const binary_string = window.atob(base64);
-            const len = binary_string.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) {
-                bytes[i] = binary_string.charCodeAt(i);
-            }
-            return bytes.buffer;
-        }
-
-        // --- Core Application Logic ---
-        
-        const form = document.getElementById('rpp-form');
         const generateBtn = document.getElementById('generate-btn');
         const downloadBtn = document.getElementById('download-btn');
         const rppOutput = document.getElementById('rpp-output');
@@ -166,18 +158,48 @@
         const btnText = document.getElementById('btn-text');
 
         let isAuthReady = false;
+        
+        // Helper function to check if all required fields are filled
+        function checkRequiredFields() {
+            const requiredFields = [
+                document.getElementById('subject').value.trim(),
+                document.getElementById('grade').value.trim(),
+                document.getElementById('topic').value.trim(),
+                document.getElementById('time_allocation').value.trim(),
+                document.getElementById('objective').value.trim()
+            ];
+            return requiredFields.every(val => val !== '');
+        }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            btnText.textContent = 'Memuat Otentikasi...'; // Set initial loading state
-            // Check for Firebase readiness before enabling the button
-            const checkFirebase = setInterval(() => {
-                if (window.auth && window.auth.currentUser) {
+        // Dedicated function to poll for the global ready flag set by the module script
+        function waitForFirebase() {
+            const checkReady = setInterval(() => {
+                // Check the global flag set by the module script
+                if (window.isFirebaseReady === true) {
+                    clearInterval(checkReady);
                     isAuthReady = true;
-                    generateBtn.disabled = false;
-                    btnText.textContent = 'Buat RPP by Bams'; // Set ready text
-                    clearInterval(checkFirebase);
+                    // Enable button if fields are already filled
+                    generateBtn.disabled = !checkRequiredFields(); 
+                    btnText.textContent = 'Buat RPP by Bams'; 
+                } else if (window.isFirebaseReady === false) {
+                     // Handle critical failure
+                    clearInterval(checkReady);
+                    btnText.textContent = 'Gagal Otentikasi'; 
+                    displayError('Gagal melakukan otentikasi Firebase. Cek konsol untuk detail.');
                 }
             }, 100);
+        }
+
+        // Start waiting immediately
+        waitForFirebase();
+        
+        // Add event listener to enable/disable button based on required fields AND auth readiness
+        document.querySelectorAll('#subject, #grade, #topic, #time_allocation, #objective').forEach(field => {
+            field.addEventListener('input', () => {
+                if (isAuthReady) { 
+                    generateBtn.disabled = !checkRequiredFields();
+                }
+            });
         });
 
         const systemPrompt = `
@@ -231,7 +253,7 @@
             const model = document.getElementById('model').value;
 
             // Simple validation
-            if (!subject || !grade || !topic || !timeAllocation || !objective) {
+            if (!checkRequiredFields()) {
                 displayError("Mohon lengkapi semua kolom yang wajib diisi.");
                 return;
             }
@@ -313,7 +335,8 @@
             loadingIndicator.classList.add('hidden');
             spinner.classList.add('hidden');
             btnText.textContent = 'Buat RPP by Bams';
-            generateBtn.disabled = false;
+            // Re-enable button based on whether fields are still filled
+            generateBtn.disabled = !checkRequiredFields(); 
 
             if (resultText && !resultText.startsWith("Gagal")) {
                 rppOutput.innerHTML = formatMarkdownToHTML(resultText);
@@ -327,10 +350,6 @@
         function displayError(message) {
             errorMessage.textContent = message;
             errorMessage.classList.remove('hidden');
-            // Ensure the main button is re-enabled if an error happens before the try-catch finishes
-            generateBtn.disabled = false;
-            spinner.classList.add('hidden');
-            btnText.textContent = 'Buat RPP by Bams';
         }
 
         function formatMarkdownToHTML(markdownText) {
@@ -374,25 +393,6 @@
             a.click();
             document.body.removeChild(a);
         }
-
-        // Add event listener to enable/disable button based on required fields
-        const requiredFields = [
-            document.getElementById('subject'),
-            document.getElementById('grade'),
-            document.getElementById('topic'),
-            document.getElementById('time_allocation'),
-            document.getElementById('objective')
-        ];
-
-        requiredFields.forEach(field => {
-            field.addEventListener('input', () => {
-                const allFilled = requiredFields.every(f => f.value.trim() !== '');
-                if(isAuthReady) { // Only enable if Firebase is ready AND fields are filled
-                    generateBtn.disabled = !allFilled;
-                }
-            });
-        });
-        
     </script>
 </body>
 </html>
